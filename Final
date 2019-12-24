@@ -1,0 +1,115 @@
+# Need numpy for array manipulations
+# random module for sampling
+# maplotlib for plotting
+
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
+# needed for summary statistics
+from scipy.stats import describe
+
+from IPython.display import display
+#############################################
+###########  PARAMETERS   ###################
+#############################################
+
+# total number of realizations of the stocahstic process
+reps = int(1000)
+
+######  FIXED EXPENSES  #########
+operating_expenses = 300000
+depreciation_expense = 250000
+
+######## INTEREST-RELATED #############
+Interest_expense = 170000
+
+#######################################
+####  VARIABLE OPERATING EXPENSE  #####
+#######################################
+
+def salesVolumeDriven(x):
+    if x == 2.e6:
+        voesd = 0.1
+        voesrd = 0.15
+    else:
+        voesd = 0.2
+        if x == 3.5e6:
+            voesrd = 0.1
+        else:
+            voesrd = 0.075
+    return voesd, voesrd
+
+# vectorize function for speed
+SalesVolumeDriven = np.vectorize(salesVolumeDriven)
+
+############################################
+######### INCOME TAX COMPUTATION ###########
+############################################
+def incometax(x):
+    if x <= 5.e6:
+        tax = 0.23*x
+    else:
+        tax = 0.34*x
+    return tax
+
+IncomeTax = np.vectorize(incometax)
+
+
+###################################################################
+############# REAL SIMULATION #####################################
+###################################################################
+
+
+#Sample the sales volume for each simulation
+#uneven chance of total sales revenue, biased towards 3.5 mil
+Sales_volume = np.random.choice([2.e6,5.e6,3.5e6],reps, p=[.175,.175,.65])
+
+#sample average selling price for each realization
+# equal chance of realizing each price
+Average_selling_price = np.random.choice([4,5,6], reps,p=[1/3,1/3,1/3])
+
+#compute total sales revenue for each simulation
+Sales_revenue = Sales_volume * Average_selling_price
+
+#compute cost of goods sold.
+Cost_of_goods_sold = Sales_revenue * np.random.choice([0.4,0.8], reps,p=[0.5,0.5])
+
+# equal probability to be either 0.4 or 0.8 of sales revenue
+Gross_Margin = Sales_revenue - Cost_of_goods_sold
+
+VOESVDpercentage, VOESRDpercentage = SalesVolumeDriven(Sales_volume)
+
+#sum to get total variable operation expense
+VOESVD = VOESVDpercentage*Sales_revenue
+VOESRD = VOESRDpercentage * Sales_revenue
+
+# compute contribution margin if variable expense is volume driven
+ContributionMargin = Gross_Margin - VOESVD - VOESRD
+
+#suntract operation expenses to get operating earnings
+Operating_Earnings = ContributionMargin - operating_expenses - depreciation_expense
+
+#subtract interest expense from operating earnings to get pre-tax income
+Earnings_before_income_tax = Operating_Earnings - Interest_expense
+
+#Bottom line
+NetIncome = Earnings_before_income_tax - IncomeTax(Earnings_before_income_tax)
+
+plt.figure('Distribution of Net Income')
+plt.hist(NetIncome, bins=21)
+plt.ylabel('Frequency')
+plt.xlabel('Net Income')
+plt.show()
+
+plt.figure('Box Plot Net Income')
+plt.boxplot(NetIncome)
+plt.show()
+
+print('The mean net income of the simulation is {}. The median is {}.\n The maximum ever computed profit is {} and the biggest loss computed is {}'\
+      .format(np.mean(NetIncome), np.median(NetIncome), np.max(NetIncome), np.min(NetIncome)))
+
+print('Number of times simulation reports a loss is {}. Thus the probability of making a loss is {}.\n'.format(len(NetIncome[NetIncome<0]), len(NetIncome[NetIncome<0])/len(NetIncome)))
+print('Total number of times simulation reported a profit is {}. Thus, the probability of recording a profit is {}.\n'.format(len(NetIncome[NetIncome>0]), len(NetIncome[NetIncome>0])/len(NetIncome)))
+
+display(describe(NetIncome))
